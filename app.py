@@ -9,7 +9,7 @@ from PIL import Image
 
 # ====================== 🎨 LOGO + HEADING ======================
 try:
-    logo = Image.open("C:/Users/91784/OneDrive/Desktop/object_detection/logo.png/logo.png")  # place logo_eye.png in same folder as app.py
+    logo = Image.open("logo.png")  # Keep logo.png in the same folder as app.py
 except Exception as e:
     st.warning(f"⚠ Logo not found: {e}")
     logo = None
@@ -66,15 +66,20 @@ with st.expander("ℹ About this project"):
 st.sidebar.header("⚙ Controls")
 confidence_slider = st.sidebar.slider("Minimum Confidence", 0.0, 1.0, 0.3, 0.05)
 
-# ====================== YOLO MODEL ======================
-model = YOLO("yolov8n.pt")
+# ====================== 🔍 YOLO MODEL LOAD (Safe) ======================
+try:
+    model = YOLO("yolov8n.pt")
+    st.sidebar.success("✅ YOLOv8 model loaded successfully")
+except Exception as e:
+    st.sidebar.error(f"❌ Model loading failed: {e}")
+    st.stop()
 
 # ====================== RTC CONFIG ======================
 RTC_CONFIGURATION = RTCConfiguration({
     "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
 })
 
-# ====================== VIDEO PROCESSOR ======================
+# ====================== 🎥 VIDEO PROCESSOR ======================
 class VideoProcessor(VideoProcessorBase):
     def __init__(self):
         self.total_frames = 0
@@ -88,7 +93,6 @@ class VideoProcessor(VideoProcessorBase):
         img = frame.to_ndarray(format="bgr24")
         results = model(img, verbose=False)
 
-        # ✅ Count how many persons detected
         person_count = 0
 
         for r in results:
@@ -99,11 +103,9 @@ class VideoProcessor(VideoProcessorBase):
                 cls = int(box.cls[0])
                 class_name = model.names[cls]
 
-                # ✅ If class is person, increment count
                 if class_name.lower() == "person":
                     person_count += 1
 
-                # ✅ Draw bounding box and label for ALL objects
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(
@@ -116,44 +118,16 @@ class VideoProcessor(VideoProcessorBase):
                     2
                 )
 
-        # ✅ Overlay stats with people count
-        cv2.putText(
-            img,
-            f"People Count: {person_count}",
-            (20, 40),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 0, 255),  # red color for visibility
-            2
-        )
-        cv2.putText(
-            img,
-            f"Frames: {self.total_frames}",
-            (20, 80),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (255, 255, 0),
-            2
-        )
-        cv2.putText(
-            img,
-            f"FPS: {fps:.1f}",
-            (20, 120),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 255, 255),
-            2
-        )
+        # Overlay stats
+        cv2.putText(img, f"People Count: {person_count}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+        cv2.putText(img, f"Frames: {self.total_frames}", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+        cv2.putText(img, f"FPS: {fps:.1f}", (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
-        # ✅ Save frame
         cv2.imwrite("current_frame.jpg", img)
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-
-
-
-# ====================== LAYOUT ======================
+# ====================== 🧩 MAIN APP ======================
 col_main, col_side = st.columns([3, 1])
 
 with col_main:
